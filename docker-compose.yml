@@ -1,0 +1,95 @@
+version: '3'
+
+services:
+  redis:
+    restart: always
+    image: 'redis'
+    networks:
+      - overlay
+    volumes:
+      - redis-data:/data:rw
+
+  postgres:
+    restart: always
+    image: 'postgres:latest'
+    environment:
+      POSTGRES_USER: 'sentry'
+      POSTGRES_PASSWORD: 'sentry'
+      POSTGRES_DB: 'sentry'
+    networks:
+      - overlay
+    volumes:
+      - db-data:/var/lib/postgresql/data:rw
+
+  sentry:
+    restart: always
+    image: 'sentry:latest'
+    depends_on:
+      - 'redis'
+      - 'postgres'
+    volumes:
+      - sentry-data:/var/lib/sentry/files:rw
+    environment:
+      SENTRY_SECRET_KEY: '%secretKey%'
+      SENTRY_POSTGRES_HOST: 'postgres'
+      SENTRY_POSTGRES_PORT: '5432'
+      SENTRY_DB_NAME: 'sentry'
+      SENTRY_DB_USER: 'sentry'
+      SENTRY_DB_PASSWORD: 'sentry'
+      SENTRY_REDIS_HOST: 'redis'
+
+      VIRTUAL_HOST: example.com
+      VIRTUAL_PORT: 9000
+      LETSENCRYPT_HOST: example.com
+      LETSENCRYPT_EMAIL: hello@example.com
+
+    networks:
+      - overlay
+      - webproxy
+
+  sentry_worker:
+    restart: always
+    image: 'sentry:latest'
+    depends_on:
+      - 'redis'
+      - 'postgres'
+    command: "sentry run worker"
+    environment:
+      SENTRY_SECRET_KEY: '%secretKey%'
+      SENTRY_POSTGRES_HOST: 'postgres'
+      SENTRY_POSTGRES_PORT: '5432'
+      SENTRY_DB_NAME: 'sentry'
+      SENTRY_DB_USER: 'sentry'
+      SENTRY_DB_PASSWORD: 'sentry'
+      SENTRY_REDIS_HOST: 'redis'
+    networks:
+      - overlay
+
+  sentry_cron:
+    restart: always
+    image: 'sentry:latest'
+    depends_on:
+      - 'redis'
+      - 'postgres'
+    command: "sentry run cron"
+    environment:
+      SENTRY_SECRET_KEY: '%secretKey%'
+      SENTRY_POSTGRES_HOST: 'postgres'
+      SENTRY_POSTGRES_PORT: '5432'
+      SENTRY_DB_NAME: 'sentry'
+      SENTRY_DB_USER: 'sentry'
+      SENTRY_DB_PASSWORD: 'sentry'
+      SENTRY_REDIS_HOST: 'redis'
+    networks:
+      - overlay
+
+volumes:
+  db-data:
+  redis-data:
+  sentry-data:
+
+networks:
+  overlay:
+  webproxy:
+    external:
+      name: webproxy
